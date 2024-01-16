@@ -281,6 +281,16 @@ class Automated_Annotator(QWidget):
             bbox["ymax"] = int(bbox["ymax"] * self.originalImageShape[0])
         return bboxes
 
+    def normalizeBBoxes(self,filename,bboxes):
+        img = cv2.imread(os.path.join(self.imageDirectory,filename))
+        bboxes = eval(str(bboxes))
+        for bbox in bboxes:
+            bbox["xmin"] = float(bbox["xmin"])/img.shape[1]
+            bbox["xmax"] = float(bbox["xmax"])/img.shape[1]
+            bbox["ymin"] = float(bbox["ymin"])/img.shape[0]
+            bbox["ymax"] = float(bbox["ymax"])/img.shape[0]
+        return bboxes
+
     def getCurrentIndex(self,idx,indexes):
         idx_found = False
         i = -1
@@ -393,20 +403,55 @@ class Automated_Annotator(QWidget):
         self.updateWidget()
 
     def onFlipAllImageHClicked(self):
-        for img in self.imagefiles:
+        for img in self.imageFiles:
             imagePath = os.path.join(self.imageDirectory, img)
             image = cv2.imread(imagePath)
             image = cv2.flip(image, 1)
             cv2.imwrite(imagePath, image)
-        self.setImage(self.currentImage)
+            entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == img]
+            flipped_boxes = self.FlipLabelsHorizontally(eval(str(entry["Bounding boxes"][entry.index[0]])))
+            self.imageLabelFile["Bounding boxes"][entry.index[0]] = flipped_boxes
+            if img == self.currentImage:
+                self.currentBBoxes = flipped_boxes
+        self.imageLabelFile.to_csv(
+            os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv"), index=False)
+        # self.setImage(self.currentImage)
+        self.updateWidget()
 
     def onFlipAllImageVClicked(self):
-        for img in self.imagefiles:
+        for img in self.imageFiles:
             imagePath = os.path.join(self.imageDirectory, img)
             image = cv2.imread(imagePath)
             image = cv2.flip(image, 0)
             cv2.imwrite(imagePath,image)
-        self.setImage(self.currentImage)
+            entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"]== img]
+            flipped_boxes = self.FlipLabelsVertically(eval(str(entry["Bounding boxes"][entry.index[0]])))
+            self.imageLabelFile["Bounding boxes"][entry.index[0]] = flipped_boxes
+            if img == self.currentImage:
+                self.currentBBoxes = flipped_boxes
+        self.imageLabelFile.to_csv(os.path.join(self.modelDir,self.selectModelComboBox.currentText(),"image_labels.csv"),index=False)
+        #self.setImage(self.currentImage)
+        self.updateWidget()
+
+    def FlipLabelsVertically(self,bboxes):
+        for bbox in bboxes:
+            oldYmin = float(bbox["ymin"])
+            oldYmax = float(bbox["ymax"])
+            bbox["ymin"] = 1.0-oldYmax
+            bbox["ymax"] = 1.0-oldYmin
+            bbox["xmin"] = float(bbox["xmin"])
+            bbox["xmax"] = float(bbox["xmax"])
+        return bboxes
+
+    def FlipLabelsHorizontally(self,bboxes):
+        for bbox in bboxes:
+            oldXmin = float(bbox["xmin"])
+            oldXmax = float(bbox["xmax"])
+            bbox["xmin"] = 1.0 - oldXmax
+            bbox["xmax"] = 1.0 - oldXmin
+            bbox["ymin"] = float(bbox["ymin"])
+            bbox["ymax"] = float(bbox["ymax"])
+        return bboxes
 
     def createModelWidget(self):
         self.modelwindow = QWidget()
@@ -637,6 +682,7 @@ class Automated_Annotator(QWidget):
             imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
             if not imgs.empty:
                 self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
+                self.all_bboxes = None
             else:
                 self.getImageFileNames()
         else:
@@ -655,12 +701,20 @@ class Automated_Annotator(QWidget):
             self.subtype = subtype
             self.labelFile = pandas.read_csv(os.path.join(self.imageDirectory,"{}_{}_Labels.csv".format(videoId,subtype)))
             self.imageFiles = [self.labelFile["FileName"][i] for i in self.labelFile.index]
+            if "Tool bounding box" in self.labelFile:
+                self.all_bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+            else:
+                self.all_bboxes = None
 
         elif os.path.exists(os.path.join(self.imageDirectory,"{}_Labels.csv".format(subtype))):
             self.videoID = subtype
             self.subtype = None
             self.labelFile = pandas.read_csv(os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype)))
             self.imageFiles = [self.labelFile["FileName"][i] for i in self.labelFile.index]
+            if "Tool bounding box" in self.labelFile:
+                self.all_bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+            else:
+                self.all_bboxes = None
         else:
             self.imageFiles = [x for x in os.listdir(self.imageDirectory) if (".jpg" in x) or (".png" in x)]
 
@@ -670,14 +724,15 @@ class Automated_Annotator(QWidget):
         message = ""
         if img_labels.empty:
             new_df = pandas.DataFrame({"Folder":[self.imageDirectory for i in self.imageFiles],
-                                       "FileName": self.imageFiles,
-                                       "Status":["Incomplete" for i in self.imageFiles],
-                                       "Bounding boxes": [[] for i in self.imageFiles]})
+                                           "FileName": self.imageFiles,
+                                           "Status":["Incomplete" for i in self.imageFiles],
+                                           "Bounding boxes": [[] for i in self.imageFiles]})
             self.imageLabelFile = pandas.concat([self.imageLabelFile,new_df])
             self.imageLabelFile.index = [i for i in range(len(self.imageLabelFile.index))]
             modelName = self.selectModelComboBox.currentText()
             message += self.selectInitialImages()
             self.imageLabelFile.to_csv(os.path.join(self.modelDir, modelName, "image_labels.csv"), index=False)
+
         first_image = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Review")]
         if not first_image.empty:
             message += "{} images remaining".format(len(first_image.index))
@@ -740,7 +795,11 @@ class Automated_Annotator(QWidget):
         for fileName in best_images:
             entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"]==fileName]
             self.imageLabelFile["Status"][entry.index[0]] = "Review"
-            self.getPrediction(self.imageLabelFile["FileName"][entry.index[0]])
+            if not (self.all_bboxes is None):
+                idx = self.imageFiles.index(fileName)
+                self.imageLabelFile["Bounding boxes"][entry.index[0]] = self.normalizeBBoxes(fileName,self.all_bboxes[idx])
+            elif predict:
+                self.getPrediction(self.imageLabelFile["FileName"][entry.index[0]])
         return msg
 
     def setImage(self,fileName=None):
@@ -820,16 +879,21 @@ class Automated_Annotator(QWidget):
         all_imgs = [allData["FileName"][i] for i in allData.index]
 
         if len(allData.index) - len(trainData.index) > max(200,len(all_imgs)*0.1):
+            last_found_idx = 0
             for i in range(len(train_imgs)):
                 if i%10==0:
                     print("updated {}/{} images".format(i+1,len(train_imgs)))
-                idx = all_imgs.index(train_imgs[i])
+                last_found_idx = max(last_found_idx,all_imgs.index(train_imgs[i]))
                 updated_images = 0
-                while updated_images < 4 and idx<len(all_imgs)-1:
-                    idx +=1
-                    if not all_imgs[idx] in train_imgs:
-                        self.getPrediction(all_imgs[idx])
-                        updated_images +=1
+                while updated_images < 2 and last_found_idx<len(all_imgs)-1:
+                    last_found_idx +=1
+                    if not all_imgs[last_found_idx] in train_imgs:
+                        entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == all_imgs[last_found_idx]]
+                        if len(eval(str(self.imageLabelFile["Bounding boxes"][entry.index[0]]))) ==0:
+                            self.getPrediction(all_imgs[last_found_idx])
+                            updated_images +=1
+                if last_found_idx == len(all_imgs)-1:
+                    break
         else:
             remaining_images = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Incomplete")]
             for i in remaining_images.index:
