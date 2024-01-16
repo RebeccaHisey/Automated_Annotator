@@ -31,6 +31,8 @@ class Automated_Annotator(QWidget):
         self.modifyBBoxStarted = False
         self.yolo = None
         self.modelDir = os.path.join(os.path.dirname(os.path.abspath(__file__)),"Models")
+        if not os.path.exists(self.modelDir):
+            os.mkdir(self.modelDir)
         self.datacsv = None
         self.imageDirectory = None
         self.model = None
