@@ -1,7 +1,7 @@
 # Automated_Annotator
 Libraries needed:  
 - ultralytics
-- torch
+- torch (https://pytorch.org/get-started/locally/)
 - torchvision
 - transformers  
 - PyQt6
