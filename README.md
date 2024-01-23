@@ -2,16 +2,16 @@
 Libraries needed:  
 - ultralytics
 - torch (https://pytorch.org/get-started/locally/)
-- torchvision
+- torchvision (satisfied)
 - transformers  
 - PyQt6
 - superqt
 - sklearn
-- opencv-python
-- PIL
-- yaml
-- numpy
-- pandas
+- opencv-python (satisfied)
+- PIL (satisfied)
+- yaml (satisfied)
+- numpy (satisfied)
+- pandas (satisfied)
 
 To run type command in console: python \<path to repo\>/Automated_Annotator.py  
 
