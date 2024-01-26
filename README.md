@@ -1,6 +1,6 @@
 # Automated_Annotator
 Libraries needed:  
-- ultralytics
+- ultralytics 
 - torch (https://pytorch.org/get-started/locally/)
 - torchvision (satisfied)
 - transformers  
