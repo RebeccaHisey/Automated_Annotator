@@ -323,17 +323,21 @@ class Automated_Annotator(QWidget):
                 curr_idx = self.getCurrentIndex(current_image.index[0],img_idxs)
                 if curr_idx < len(img_idxs)-1:
                     next_idx = img_idxs[curr_idx+1]
-                    self.updateModelButton.setEnabled(False)
+                    #self.updateModelButton.setEnabled(False)
                 else:
                     next_idx = img_idxs[curr_idx]
                     self.updateLabelFile()
                     self.updateModelButton.setEnabled(True)
+                reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
+                if len(reviewed_imgs.index)>50:
+                    self.updateModelButton.setEnabled(True)
+
             else:#if len(completed_imgs.index)==len(self.imageFiles):
                 img_idxs = completed_imgs.index
                 curr_idx = self.getCurrentIndex(current_image.index[0], img_idxs)
                 if curr_idx < len(img_idxs)-1:
                     next_idx = img_idxs[curr_idx+1]
-                    self.updateModelButton.setEnabled(False)
+                    #self.updateModelButton.setEnabled(False)
                 else:
                     next_idx = img_idxs[curr_idx]
             self.currentImage = self.imageLabelFile["FileName"][next_idx]
@@ -389,6 +393,9 @@ class Automated_Annotator(QWidget):
                 self.updateModelButton.setEnabled(False)
             else:
                 next_idx = img_idxs[curr_idx]
+                self.updateModelButton.setEnabled(True)
+            reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
+            if len(reviewed_imgs.index) > 50:
                 self.updateModelButton.setEnabled(True)
         elif len(completed_imgs.index) == len(self.imageFiles):
             img_idxs = completed_imgs.index
@@ -530,7 +537,6 @@ class Automated_Annotator(QWidget):
         self.currentBBoxes = eval(str(self.currentBBoxes))
         className = self.classSelector.currentText()
         bbox_index = self.currentBoxSelector.currentIndex()-2
-        print(bbox_index)
         self.currentBBoxes[bbox_index]["class"] = className
         self.updateLabelFile()
 
@@ -689,9 +695,13 @@ class Automated_Annotator(QWidget):
             self.getImageFileNames()
         if len(self.imageFiles) > 0:
             self.addImagesToLabelFile()
+            reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
+            if not reviewed_imgs.empty:
+                self.updateModelButton.setEnabled(True)
         else:
             self.messageLabel.setText("No images found in directory")
             self.setImage()
+
 
     def getImageFileNames(self):
         videoId = os.path.basename(os.path.dirname(self.imageDirectory))
@@ -782,8 +792,14 @@ class Automated_Annotator(QWidget):
             yaml.dump(class_mapping, f)
 
     def selectInitialImages(self):
-        best_images = Cluster().getBestImages(self.imageFiles,self.imageDirectory)
-        print(len(best_images))
+        self.messageLabel.setText("Selecting initial images, this may take a few minutes.")
+        if len(self.imageFiles)>10000:
+            downsampling = len(self.imageFiles)//10000
+            images = [self.imageFiles[i] for i in range(0,len(self.imageFiles),downsampling)]
+            print("Reducing from {} to {} images".format(len(self.imageFiles),len(images)))
+            best_images = Cluster().getBestImages(images,self.imageDirectory)
+        else:
+            best_images = Cluster().getBestImages(self.imageFiles,self.imageDirectory)
         msg = "{}/{} images selected for annotation\n".format(len(best_images),len(self.imageFiles))
         if not self.imageFiles[0] in best_images:
             best_images.append(self.imageFiles[0])
@@ -832,6 +848,7 @@ class Automated_Annotator(QWidget):
     def updateModel(self):
         self.markReviewedAsComplete()
         self.createTrainingCSV()
+        self.messageLabel.setText("Updating model, this may take a few minutes")
         trainData = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"] == "Complete")]
         if len(trainData.index) == len(self.imageFiles):
             trainData = self.imageLabelFile.loc[self.imageLabelFile["Status"] == "Complete"]
@@ -848,8 +865,9 @@ class Automated_Annotator(QWidget):
         self.yolo = YOLOv8("detect")
         self.yolo.loadModel(os.
                             path.join(self.modelDir,self.selectModelComboBox.currentText()))
+
         self.selectNextImages()
-        imgs_to_review = self.imageLabelFile.loc[self.imageLabelFile["Status"]=="Review"]
+        imgs_to_review = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Review")]
         if not imgs_to_review.empty:
             self.currentImage = imgs_to_review["FileName"][imgs_to_review.index[0]]
             self.currentBBoxes = imgs_to_review["Bounding boxes"][imgs_to_review.index[0]]
@@ -877,29 +895,32 @@ class Automated_Annotator(QWidget):
         allData = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory)]
         train_imgs = [trainData["FileName"][i] for i in trainData.index]
         all_imgs = [allData["FileName"][i] for i in allData.index]
-
-        if len(allData.index) - len(trainData.index) > max(200,len(all_imgs)*0.1):
-            last_found_idx = 0
-            for i in range(len(train_imgs)):
-                if i%10==0:
-                    print("updated {}/{} images".format(i+1,len(train_imgs)))
-                last_found_idx = max(last_found_idx,all_imgs.index(train_imgs[i]))
-                updated_images = 0
-                while updated_images < 2 and last_found_idx<len(all_imgs)-1:
-                    last_found_idx +=1
-                    if not all_imgs[last_found_idx] in train_imgs:
-                        entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == all_imgs[last_found_idx]]
-                        if len(eval(str(self.imageLabelFile["Bounding boxes"][entry.index[0]]))) ==0:
-                            self.getPrediction(all_imgs[last_found_idx])
-                            updated_images +=1
-                if last_found_idx == len(all_imgs)-1:
-                    break
+        imgs_to_review = allData.loc[(allData["Folder"] == self.imageDirectory) & (allData["Status"] == "Review")]
+        if not imgs_to_review.empty:
+            for i in imgs_to_review.index:
+                self.getPrediction(imgs_to_review["FileName"][i])
         else:
-            remaining_images = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Incomplete")]
-            for i in remaining_images.index:
-                self.getPrediction(remaining_images["FileName"][i])
-        self.updateModelButton.setEnabled(False)
-
+            if len(allData.index) - len(trainData.index) > max(200,len(all_imgs)*0.1):
+                last_found_idx = 0
+                for i in range(len(train_imgs)):
+                    if i%10==0:
+                        print("updated {}/{} images".format(i+1,len(train_imgs)))
+                    last_found_idx = max(last_found_idx,all_imgs.index(train_imgs[i]))
+                    updated_images = 0
+                    while updated_images < 2 and last_found_idx<len(all_imgs)-1:
+                        last_found_idx +=1
+                        if not all_imgs[last_found_idx] in train_imgs:
+                            entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == all_imgs[last_found_idx]]
+                            if len(eval(str(self.imageLabelFile["Bounding boxes"][entry.index[0]]))) ==0:
+                                self.getPrediction(all_imgs[last_found_idx])
+                                updated_images +=1
+                    if last_found_idx == len(all_imgs)-1:
+                        break
+            else:
+                remaining_images = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Incomplete")]
+                for i in remaining_images.index:
+                    self.getPrediction(remaining_images["FileName"][i])
+            self.updateModelButton.setEnabled(False)
         self.imageLabelFile.to_csv(os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv"),index=False)
 
 
