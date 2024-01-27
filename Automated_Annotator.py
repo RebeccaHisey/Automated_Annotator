@@ -36,6 +36,8 @@ class Automated_Annotator(QWidget):
         self.datacsv = None
         self.imageDirectory = None
         self.model = None
+        self.displayMode = "show all"
+        self.allDisplayModes = ["show all", "show active", "hide all"]
         self.setWindowTitle("Automated Annotator")
         self.setupWidget()
         self.setupWidgetConnections()
@@ -221,6 +223,16 @@ class Automated_Annotator(QWidget):
         exportShortcut = QShortcut(self)
         exportShortcut.setKey("Ctrl+e")
         exportShortcut.activated.connect(self.ExportToLabelFile)
+
+        displayModeShortcut = QShortcut(self)
+        displayModeShortcut.setKey("m")
+        displayModeShortcut.activated.connect(self.cycleDisplayMode)
+
+    def cycleDisplayMode(self):
+        currentMode = self.allDisplayModes.index(self.displayMode)
+        newMode = (currentMode + 1)%len(self.allDisplayModes)
+        self.displayMode = self.allDisplayModes[newMode]
+        self.setImage(self.currentImage)
 
     def removeImage(self):
         completed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Complete")]
@@ -828,16 +840,18 @@ class Automated_Annotator(QWidget):
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.resize(img, (self.imgShape[1], self.imgShape[0]), interpolation=cv2.INTER_AREA)
             bboxes = eval(str(self.currentBBoxes))
-            for i in range(len(bboxes)):
-                bbox = bboxes[i]
-                if i == self.currentBoxSelector.currentIndex()-2:
-                    colour = (0,255,0)
-                else:
-                    colour = (255,0,0)
-                img = cv2.rectangle(img, (int(bbox["xmin"]*self.imgShape[1]), int(bbox["ymin"]*self.imgShape[0])), (int(bbox["xmax"]*self.imgShape[1]), int(bbox["ymax"]*self.imgShape[0])), colour, 2)
-                img = cv2.putText(img, "{}. {}".format(i+1, bbox["class"]),
-                                    (int(bbox["xmin"]*self.imgShape[1]), int(bbox["ymin"]*self.imgShape[0]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2,
-                                    cv2.LINE_AA)
+            if self.displayMode != "hide all":
+                for i in range(len(bboxes)):
+                    bbox = bboxes[i]
+                    if i == self.currentBoxSelector.currentIndex()-2:
+                        colour = (0,255,0)
+                    else:
+                        colour = (255,0,0)
+                    if self.displayMode == "show all" or i == self.currentBoxSelector.currentIndex()-2:
+                        img = cv2.rectangle(img, (int(bbox["xmin"]*self.imgShape[1]), int(bbox["ymin"]*self.imgShape[0])), (int(bbox["xmax"]*self.imgShape[1]), int(bbox["ymax"]*self.imgShape[0])), colour, 2)
+                        img = cv2.putText(img, "{}. {}".format(i+1, bbox["class"]),
+                                            (int(bbox["xmin"]*self.imgShape[1]), int(bbox["ymin"]*self.imgShape[0]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, colour, 2,
+                                            cv2.LINE_AA)
 
         height, width, channel = img.shape
         bytesPerLine = 3 * width
