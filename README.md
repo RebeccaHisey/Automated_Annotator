@@ -19,4 +19,5 @@ Commands:
 - n -> move to next image
 - p -> move to previous image
 - d -> remove image (only functional after all images have been labelled)
+- m -> cycle display modes (show all boxes, show active box only, hide all boxes)
 - Ctrl+e -> export bounding boxes to label file (only functional after all images have been labelled)
