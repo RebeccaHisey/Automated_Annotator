@@ -249,29 +249,29 @@ class Automated_Annotator(QWidget):
         completed_imgs = self.imageLabelFile.loc[
             (self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Complete")]
         img_files = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
+
+        videoId = os.path.basename(os.path.dirname(self.imageDirectory))
+        subtype = os.path.basename(self.imageDirectory)
+
+        if os.path.exists(os.path.join(self.imageDirectory, "{}_{}_Labels.csv".format(videoId, subtype))):
+            self.videoID = videoId
+            self.subtype = subtype
+            label_file_path = os.path.join(self.imageDirectory, "{}_{}_Labels.csv".format(videoId, subtype))
+            self.labelFile = pandas.read_csv(label_file_path)
+
+        elif os.path.exists(os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))):
+            self.videoID = subtype
+            self.subtype = None
+            label_file_path = os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))
+            self.labelFile = pandas.read_csv(label_file_path)
+
+        else:
+            self.videoID = subtype
+            self.subtype = None
+            label_file_path = os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))
+            self.labelFile = pandas.DataFrame({"FileName": [img_files["FileName"][i] for i in img_files.index]})
+
         if len(completed_imgs.index) == len(img_files.index):
-            videoId = os.path.basename(os.path.dirname(self.imageDirectory))
-            subtype = os.path.basename(self.imageDirectory)
-
-
-            if os.path.exists(os.path.join(self.imageDirectory, "{}_{}_Labels.csv".format(videoId, subtype))):
-                self.videoID = videoId
-                self.subtype = subtype
-                label_file_path = os.path.join(self.imageDirectory, "{}_{}_Labels.csv".format(videoId, subtype))
-                self.labelFile = pandas.read_csv(label_file_path)
-
-            elif os.path.exists(os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))):
-                self.videoID = subtype
-                self.subtype = None
-                label_file_path = os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))
-                self.labelFile = pandas.read_csv(label_file_path)
-
-            else:
-                self.videoID = subtype
-                self.subtype = None
-                label_file_path = os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype))
-                self.labelFile = pandas.DataFrame({"FileName":[img_files["FileName"][i] for i in img_files.index]})
-
             idx_to_drop = []
             for i in self.labelFile.index:
                 fileName = self.labelFile["FileName"][i]
@@ -281,8 +281,8 @@ class Automated_Annotator(QWidget):
 
             self.labelFile = self.labelFile.drop(idx_to_drop,axis="index")
             self.labelFile.index = [i for i in range(len(self.labelFile.index))]
-            self.labelFile["Tool bounding box"] = [self.convertBBoxes(img_files["Bounding boxes"][i]) for i in img_files.index]
-            self.labelFile.to_csv(label_file_path,index=False)
+        self.labelFile["Tool bounding box"] = [self.convertBBoxes(img_files["Bounding boxes"][i]) if img_files["Status"][i]!="Review" else [] for i in img_files.index]
+        self.labelFile.to_csv(label_file_path,index=False)
 
     def convertBBoxes(self,bboxes):
         bboxes = eval(str(bboxes))
@@ -335,7 +335,6 @@ class Automated_Annotator(QWidget):
                 curr_idx = self.getCurrentIndex(current_image.index[0],img_idxs)
                 if curr_idx < len(img_idxs)-1:
                     next_idx = img_idxs[curr_idx+1]
-                    #self.updateModelButton.setEnabled(False)
                 else:
                     next_idx = img_idxs[curr_idx]
                     self.updateLabelFile()
@@ -353,10 +352,57 @@ class Automated_Annotator(QWidget):
                 else:
                     next_idx = img_idxs[curr_idx]
             self.currentImage = self.imageLabelFile["FileName"][next_idx]
+            self.imageLabelFile["Bounding boxes"][next_idx] = self.smoothBBoxes(self.imageLabelFile["Bounding boxes"][next_idx],next_idx)
             self.currentBBoxes = self.imageLabelFile["Bounding boxes"][next_idx]
             self.updateWidget()
         else:
             self.messageLabel.setText("All bounding boxes must be assigned a class")
+
+    def euclideanDistance(self,x1,y1,x2,y2):
+        distance = ((x1-x2)**2 + (y1-y2)**2)**0.5
+        return distance
+
+    def calculateCornerDistance(self,bbox_1,bbox_2):
+        distance = self.euclideanDistance(bbox_1["xmin"],bbox_1["ymin"],bbox_2["xmin"],bbox_2["ymin"])
+        distance += self.euclideanDistance(bbox_1["xmin"],bbox_1["ymax"],bbox_2["xmin"],bbox_2["ymax"])
+        distance += self.euclideanDistance(bbox_1["xmax"], bbox_1["ymin"], bbox_2["xmax"], bbox_2["ymin"])
+        distance += self.euclideanDistance(bbox_1["xmax"], bbox_1["ymax"], bbox_2["xmax"], bbox_2["ymax"])
+        return distance
+
+    def findClosestBBox(self,target_bbox,bboxes):
+        bestDistance = math.inf
+        bestBox = None
+        for box in bboxes:
+            if box["class"] == target_bbox["class"]:
+                distance =self.calculateCornerDistance(target_bbox,box)
+                if distance < bestDistance:
+                    bestDistance = distance
+                    bestBox = box
+        return bestBox
+
+    def smoothBBoxes(self,bboxes,next_idx):
+        imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory)]
+        prev_idx = next_idx - 1
+        try:
+            prev_status = imgs["Status"][prev_idx]
+            if prev_status == "Complete" or prev_status == "Reviewed":
+                prev_bboxes = eval(str(imgs["Bounding boxes"][prev_idx]))
+                bboxes = eval(str(bboxes))
+                bestBoxes = []
+                for box in prev_bboxes:
+                    closestBox = self.findClosestBBox(box,bboxes)
+                    if closestBox!=None and not closestBox in bestBoxes:
+                        bestBoxes.append(closestBox)
+                    elif closestBox!=None and closestBox in bestBoxes:
+                        bestBoxes.append(box)
+                    elif closestBox is None and not box in bestBoxes:
+                        bestBoxes.append(box)
+                return bestBoxes
+            else:
+                return bboxes
+        except:
+            return bboxes
+
 
 
     def updateWidget(self):
