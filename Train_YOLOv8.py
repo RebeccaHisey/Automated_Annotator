@@ -158,15 +158,16 @@ def writeLabelTextFiles(data, labelName, foldDir,inverted_class_mapping,include_
                 linesToWrite.append("{}\n".format(filePath))
             file,imgExtension = filePath.split(".",-1)
             labelFilePath = file+".txt"
-            img = cv2.imread(filePath)
-            img_shape = img.shape
-            line = ""
-            for bbox in bboxes:
-                x_centre, y_centre, width, height = xyxy_to_yolo(img_shape,bbox)
-                class_name = inverted_class_mapping[bbox["class"]]
-                line += "{} {} {} {} {}\n".format(class_name,x_centre,y_centre,width,height)
-            with open(labelFilePath, "w") as f:
-                f.write(line)
+            if data["Set"][data.index[0]] == "Train":
+                img = cv2.imread(filePath)
+                img_shape = img.shape
+                line = ""
+                for bbox in bboxes:
+                    x_centre, y_centre, width, height = xyxy_to_yolo(img_shape,bbox)
+                    class_name = inverted_class_mapping[bbox["class"]]
+                    line += "{} {} {} {} {}\n".format(class_name,x_centre,y_centre,width,height)
+                with open(labelFilePath, "w") as f:
+                    f.write(line)
     print(foundCounts)
     fileName = "{}.txt".format(data["Set"][data.index[0]])
     filePath = os.path.join(foldDir,fileName)
@@ -257,7 +258,7 @@ def removeCache(data_dir):
 
 def prepareData(datacsv, labelName, fold, class_mapping, foldDir,include_blank,mode="detect",balance = True):
     config = {}
-    sets = ["Train","Validation","Test"]
+    sets = ["Train","Validation"]
     for learning_set in sets:
         print("Parsing {} data".format(learning_set.lower()))
         data = datacsv.loc[(datacsv["Fold"] == fold) & (datacsv["Set"] == learning_set)]
@@ -389,17 +390,6 @@ def train(args):
                     project=foldDir,
                     exist_ok=True)
 
-        '''yolo.loadModel(foldDir)
-        model = yolo.model
-        metrics = model.val(split="test",
-                            device=args.device,
-                            iou=0.45,
-                            conf=0.25)
-        saveMetrics(metrics,class_mapping,foldDir,args.output_mode)
-        if args.output_mode == 'segment':
-            avg_dice = eval_segmentations(dataCSVFile.loc[(dataCSVFile["Fold"]==fold) & (dataCSVFile["Set"]=="Test")],class_mapping,model,args.label_name)
-            with open(os.path.join(foldDir, "test_dice.yaml"), "w") as f:
-                yaml.dump(avg_dice, f)'''
         del model
         del yolo
         empty_cache()

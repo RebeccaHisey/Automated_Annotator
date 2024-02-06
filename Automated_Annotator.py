@@ -281,6 +281,9 @@ class Automated_Annotator(QWidget):
 
             self.labelFile = self.labelFile.drop(idx_to_drop,axis="index")
             self.labelFile.index = [i for i in range(len(self.labelFile.index))]
+
+        print("exporting to label file: {}".format(label_file_path))
+
         self.labelFile["Tool bounding box"] = [self.convertBBoxes(img_files["Bounding boxes"][i]) if img_files["Status"][i]!="Review" else [] for i in img_files.index]
         self.labelFile.to_csv(label_file_path,index=False)
 
@@ -352,7 +355,10 @@ class Automated_Annotator(QWidget):
                 else:
                     next_idx = img_idxs[curr_idx]
             self.currentImage = self.imageLabelFile["FileName"][next_idx]
-            self.imageLabelFile["Bounding boxes"][next_idx] = self.smoothBBoxes(self.imageLabelFile["Bounding boxes"][next_idx],next_idx)
+            if (next_idx -1) in self.imageLabelFile.index and self.imageLabelFile["Folder"][next_idx-1] == self.imageLabelFile["Folder"][next_idx] and self.imageLabelFile["Status"][next_idx-1]!= "Incomplete":
+                self.imageLabelFile["Bounding boxes"][next_idx] = self.smoothBBoxes(self.imageLabelFile["Bounding boxes"][next_idx],next_idx)
+            else:
+                self.imageLabelFile["Bounding boxes"][next_idx] = self.imageLabelFile["Bounding boxes"][next_idx]
             self.currentBBoxes = self.imageLabelFile["Bounding boxes"][next_idx]
             self.updateWidget()
         else:
@@ -595,8 +601,11 @@ class Automated_Annotator(QWidget):
         self.currentBBoxes = eval(str(self.currentBBoxes))
         className = self.classSelector.currentText()
         bbox_index = self.currentBoxSelector.currentIndex()-2
-        self.currentBBoxes[bbox_index]["class"] = className
-        self.updateLabelFile()
+        try:
+            self.currentBBoxes[bbox_index]["class"] = className
+            self.updateLabelFile()
+        except IndexError:
+            pass
 
     def updateBBoxCoordinates(self):
         self.currentBBoxes = eval(str(self.currentBBoxes))
@@ -650,9 +659,12 @@ class Automated_Annotator(QWidget):
         ymin_signals = self.yminSelector.blockSignals(True)
         ymax_signals = self.ymaxSelector.blockSignals(True)
         if self.currentBoxSelector!="Select box":
-            self.currentBBoxes.pop(box_index)
-            self.updateBBoxSelector()
-            self.updateLabelFile()
+            try:
+                self.currentBBoxes.pop(box_index)
+                self.updateBBoxSelector()
+                self.updateLabelFile()
+            except IndexError:
+                pass
         self.currentBoxSelector.blockSignals(bbox_signals)
         self.classSelector.blockSignals(class_signals)
         self.xminSelector.blockSignals(xmin_signals)
@@ -736,27 +748,31 @@ class Automated_Annotator(QWidget):
     def onSelectImageDirectory(self):
         window = QWidget()
         window.setWindowTitle("Select Image Directory")
-        self.imageDirectory = QFileDialog.getExistingDirectory(window,"C://")
+        try:
+            self.imageDirectory = QFileDialog.getExistingDirectory(window,"C://")
 
-        self.imageDirectoryLabel.setText("Image Directory: \n{}".format(self.imageDirectory))
+            self.imageDirectoryLabel.setText("Image Directory: \n{}".format(self.imageDirectory))
 
-        label_filepath = os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv")
-        if os.path.exists(label_filepath):
-            self.imageLabelFile = pandas.read_csv(label_filepath)
-            imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
-            if not imgs.empty:
-                self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
-                self.all_bboxes = None
+            label_filepath = os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv")
+            if os.path.exists(label_filepath):
+                self.imageLabelFile = pandas.read_csv(label_filepath)
+                imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
+                if not imgs.empty:
+                    self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
+                    self.all_bboxes = None
+                else:
+                    self.getImageFileNames()
             else:
                 self.getImageFileNames()
-        else:
-            self.getImageFileNames()
-        if len(self.imageFiles) > 0:
-            self.addImagesToLabelFile()
-            reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
-            if not reviewed_imgs.empty:
-                self.updateModelButton.setEnabled(True)
-        else:
+            if len(self.imageFiles) > 0:
+                self.addImagesToLabelFile()
+                reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
+                if not reviewed_imgs.empty:
+                    self.updateModelButton.setEnabled(True)
+            else:
+                self.messageLabel.setText("No images found in directory")
+                self.setImage()
+        except:
             self.messageLabel.setText("No images found in directory")
             self.setImage()
 
@@ -770,7 +786,11 @@ class Automated_Annotator(QWidget):
             self.labelFile = pandas.read_csv(os.path.join(self.imageDirectory,"{}_{}_Labels.csv".format(videoId,subtype)))
             self.imageFiles = [self.labelFile["FileName"][i] for i in self.labelFile.index]
             if "Tool bounding box" in self.labelFile:
-                self.all_bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+                bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+                if len(set(bboxes)) == 1:
+                    self.all_bboxes = None
+                else:
+                    self.all_bboxes = bboxes
             else:
                 self.all_bboxes = None
 
@@ -785,6 +805,7 @@ class Automated_Annotator(QWidget):
                 self.all_bboxes = None
         else:
             self.imageFiles = [x for x in os.listdir(self.imageDirectory) if (".jpg" in x) or (".png" in x)]
+            self.all_bboxes = None
 
 
     def addImagesToLabelFile(self):
