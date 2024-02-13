@@ -749,7 +749,7 @@ class Automated_Annotator(QWidget):
         window = QWidget()
         window.setWindowTitle("Select Image Directory")
         try:
-            self.imageDirectory = QFileDialog.getExistingDirectory(window,"C://")
+            self.imageDirectory = QFileDialog.getExistingDirectoryUrl(window,"C://").toString().replace("file:///","")
 
             self.imageDirectoryLabel.setText("Image Directory: \n{}".format(self.imageDirectory))
 
@@ -930,9 +930,9 @@ class Automated_Annotator(QWidget):
         self.markReviewedAsComplete()
         self.createTrainingCSV()
         self.messageLabel.setText("Updating model, this may take a few minutes")
-        trainData = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"] == "Complete")]
-        if len(trainData.index) == len(self.imageFiles):
-            trainData = self.imageLabelFile.loc[self.imageLabelFile["Status"] == "Complete"]
+        '''trainData = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"] == "Complete")]
+        if len(trainData.index) == len(self.imageFiles):'''
+        trainData = self.imageLabelFile.loc[self.imageLabelFile["Status"] == "Complete"]
         if len(trainData.index)>1000:
             balance = False
         else:
@@ -1014,6 +1014,15 @@ class Automated_Annotator(QWidget):
 
     def createTrainingCSV(self):
         entries = self.imageLabelFile.loc[self.imageLabelFile["Status"]=="Complete"]
+        if len(entries.index)>5000 and len(entries.index)!=len(self.imageLabelFile.index):
+            currentData = entries.loc[entries["Folder"]==self.imageDirectory]
+            unique_videos = entries["Folder"].unique()
+            for vid in unique_videos:
+                if vid != self.imageDirectory:
+                    data = entries.loc[entries["Folder"]==vid]
+                    data = data.sample(frac=0.1)
+                    currentData = pandas.concat([currentData,data])
+            entries = currentData.copy()
         trainCSV = pandas.concat([entries.copy(),entries.copy(),entries.copy()])
         trainCSV.index = [i for i in range(3*len(entries.index))]
         trainCSV["Fold"] = [0 for i in range(3*len(entries.index))]
