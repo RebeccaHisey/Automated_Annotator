@@ -168,7 +168,7 @@ class Automated_Annotator(QWidget):
             self.currentBBoxes[box_index]["ymax"] = max(imageYCoordinate, self.startingPoint[1])/self.imgShape[0]
             #print(self.currentBBoxes)
             self.setBBoxCoordinates(self.currentBBoxes[box_index])
-            self.setImage(self.currentImage)
+            self.setImage(self.currentImage, reload_image=False)
 
     def mousePressEvent(self,event):
         if self.currentBoxSelector.currentIndex() >=2:
@@ -178,7 +178,10 @@ class Automated_Annotator(QWidget):
             imageWidgetShape = (self.imageLabel.width(),self.imageLabel.height())
             if imageWidgetPosition[0]<=cursorPosition[0]<=(imageWidgetPosition[0]+imageWidgetShape[0]) and imageWidgetPosition[1]<=cursorPosition[1]<=(imageWidgetPosition[1]+imageWidgetShape[1]):
                 self.modifyBBoxStarted = True
-
+                self.xminSelector.blockSignals(True)
+                self.xmaxSelector.blockSignals(True)
+                self.yminSelector.blockSignals(True)
+                self.ymaxSelector.blockSignals(True)
                 imageXCoordinate = max(0, min(self.imgShape[1], cursorPosition[0] - imageWidgetPosition[0]))
                 imageYCoordinate = max(0, min(self.imgShape[0], cursorPosition[1] - imageWidgetPosition[1]))
                 self.startingPoint = (imageXCoordinate,imageYCoordinate)
@@ -189,7 +192,7 @@ class Automated_Annotator(QWidget):
                 self.currentBBoxes[box_index]["xmax"] = imageXCoordinate/self.imgShape[1]
                 self.currentBBoxes[box_index]["ymax"] = imageYCoordinate/self.imgShape[0]
                 self.setBBoxCoordinates(self.currentBBoxes[box_index])
-                self.setImage(self.currentImage)
+                self.setImage(self.currentImage,reload_image=False)
         else:
             self.modifyBBoxStarted = False
 
@@ -197,7 +200,11 @@ class Automated_Annotator(QWidget):
         self.modifyBBoxStarted = False
         if self.currentBoxSelector.currentIndex() >= 2 and self.modifyBBoxStarted:
             self.updateLabelFile()
-            self.setImage(self.currentImage)
+            self.setImage(self.currentImage, reload_image=False)
+            self.xminSelector.blockSignals(False)
+            self.xmaxSelector.blockSignals(False)
+            self.yminSelector.blockSignals(False)
+            self.ymaxSelector.blockSignals(False)
 
     def setupHotkeys(self):
         allVerticalFlipShortcut = QShortcut(self)
@@ -232,7 +239,7 @@ class Automated_Annotator(QWidget):
         currentMode = self.allDisplayModes.index(self.displayMode)
         newMode = (currentMode + 1)%len(self.allDisplayModes)
         self.displayMode = self.allDisplayModes[newMode]
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
 
     def removeImage(self):
         completed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Complete")]
@@ -595,7 +602,7 @@ class Automated_Annotator(QWidget):
         self.xmaxSelector.blockSignals(xmax_signals)
         self.yminSelector.blockSignals(ymin_signals)
         self.ymaxSelector.blockSignals(ymax_signals)
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
 
     def updateBBoxClass(self):
         self.currentBBoxes = eval(str(self.currentBBoxes))
@@ -618,7 +625,7 @@ class Automated_Annotator(QWidget):
         self.currentBBoxes[bbox_index]["xmax"] = xmax
         self.currentBBoxes[bbox_index]["ymin"] = ymin
         self.currentBBoxes[bbox_index]["ymax"] = ymax
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
         self.updateLabelFile()
 
     def onCurrentBoxChanged(self):
@@ -647,7 +654,7 @@ class Automated_Annotator(QWidget):
         self.xmaxSelector.blockSignals(xmax_signals)
         self.yminSelector.blockSignals(ymin_signals)
         self.ymaxSelector.blockSignals(ymax_signals)
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
 
     def onDeleteBox(self):
         box_index = self.currentBoxSelector.currentIndex()-2
@@ -671,14 +678,22 @@ class Automated_Annotator(QWidget):
         self.xmaxSelector.blockSignals(xmax_signals)
         self.yminSelector.blockSignals(ymin_signals)
         self.ymaxSelector.blockSignals(ymax_signals)
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
 
 
     def setBBoxCoordinates(self,bbox):
+        xmin_signals = self.xminSelector.blockSignals(True)
+        xmax_signals = self.xmaxSelector.blockSignals(True)
+        ymin_signals = self.yminSelector.blockSignals(True)
+        ymax_signals = self.ymaxSelector.blockSignals(True)
         self.xminSelector.setValue(bbox["xmin"])
         self.xmaxSelector.setValue(bbox["xmax"])
         self.yminSelector.setValue(bbox["ymin"])
         self.ymaxSelector.setValue(bbox["ymax"])
+        self.xminSelector.blockSignals(xmin_signals)
+        self.xmaxSelector.blockSignals(xmax_signals)
+        self.yminSelector.blockSignals(ymin_signals)
+        self.ymaxSelector.blockSignals(ymax_signals)
 
     def onModelCreated(self):
         model_signals = self.selectModelComboBox.blockSignals(True)
@@ -717,7 +732,7 @@ class Automated_Annotator(QWidget):
             self.classwindow.show()
         self.currentBoxSelector.blockSignals(bbox_signals)
         self.classSelector.blockSignals(class_signals)
-        self.setImage(self.currentImage)
+        self.setImage(self.currentImage,reload_image=False)
 
         if not os.path.exists(os.path.join(self.modelDir,self.selectModelComboBox.currentText(),"class_mapping.yaml")):
             class_mapping = dict(zip([i for i in range(len(class_names))],class_names))
@@ -897,15 +912,26 @@ class Automated_Annotator(QWidget):
                 self.getPrediction(self.imageLabelFile["FileName"][entry.index[0]])
         return msg
 
-    def setImage(self,fileName=None):
+    def setImage(self,fileName=None, reload_image=True):
         if fileName == None:
             img = numpy.zeros(self.imgShape)
-
         else:
-            img = cv2.imread(os.path.join(self.imageDirectory, fileName))
-            self.originalImageShape = img.shape
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (self.imgShape[1], self.imgShape[0]), interpolation=cv2.INTER_AREA)
+            try:
+                img = self.img.copy()
+                if fileName!=self.prev_filename:
+                    self.img = cv2.imread(os.path.join(self.imageDirectory, fileName))
+                    self.originalImageShape = self.img.shape
+                    self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+                    self.img = cv2.resize(self.img, (self.imgShape[1], self.imgShape[0]), interpolation=cv2.INTER_AREA)
+                    self.prev_filename = fileName
+                    img = self.img.copy()
+            except AttributeError:
+                self.img = cv2.imread(os.path.join(self.imageDirectory, fileName))
+                self.originalImageShape = self.img.shape
+                self.img = cv2.cvtColor(self.img, cv2.COLOR_BGR2RGB)
+                self.img = cv2.resize(self.img, (self.imgShape[1], self.imgShape[0]), interpolation=cv2.INTER_AREA)
+                self.prev_filename = fileName
+                img = self.img.copy()
             bboxes = eval(str(self.currentBBoxes))
             if self.displayMode != "hide all":
                 for i in range(len(bboxes)):
