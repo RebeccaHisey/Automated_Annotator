@@ -197,7 +197,6 @@ class Automated_Annotator(QWidget):
             self.modifyBBoxStarted = False
 
     def mouseReleaseEvent(self,event):
-        self.modifyBBoxStarted = False
         if self.currentBoxSelector.currentIndex() >= 2 and self.modifyBBoxStarted:
             self.updateLabelFile()
             self.setImage(self.currentImage, reload_image=False)
@@ -205,6 +204,7 @@ class Automated_Annotator(QWidget):
             self.xmaxSelector.blockSignals(False)
             self.yminSelector.blockSignals(False)
             self.ymaxSelector.blockSignals(False)
+        self.modifyBBoxStarted = False
 
     def setupHotkeys(self):
         allVerticalFlipShortcut = QShortcut(self)
