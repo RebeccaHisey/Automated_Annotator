@@ -27,7 +27,11 @@ class Cluster():
     def getVITFeatures(self,data,vid_folder,prog_bar = None, prog_message = None):
         ViTModel = ViTForImageClassification.from_pretrained("facebook/vit-mae-base")
         ViTModel.classifier = Identity()
-        ViTModel.cuda("cuda")
+        try:
+            ViTModel.cuda("cuda")
+            use_cuda = True
+        except AssertionError:
+            use_cuda = False
         image_processor = AutoImageProcessor.from_pretrained("facebook/vit-mae-base")
         allPredictions = numpy.array([])
         images = []
@@ -40,10 +44,15 @@ class Cluster():
                 if i % 10 == 0 or i == len(data)-1:
                     images = image_processor(images)
                     imgs = numpy.array(images["pixel_values"])
-                    images["pixel_values"] = torch.from_numpy(imgs).cuda("cuda")
-
+                    if use_cuda:
+                        images["pixel_values"] = torch.from_numpy(imgs).cuda("cuda")
+                    else:
+                        images["pixel_values"] = torch.from_numpy(imgs)
                     preds = ViTModel(**images)
-                    outputs = preds.logits.cpu().detach().numpy()
+                    if use_cuda:
+                        outputs = preds.logits.cpu().detach().numpy()
+                    else:
+                        outputs = preds.logits.detach().numpy()
                     if allPredictions.shape[0] == 0:
                         allPredictions = outputs
                     else:
@@ -54,12 +63,14 @@ class Cluster():
                     del preds
                     del outputs
                     gc.collect()
-                    torch.cuda.empty_cache()
+                    if use_cuda:
+                        torch.cuda.empty_cache()
                     images = []
         del ViTModel
         del image_processor
         gc.collect()
-        torch.cuda.empty_cache()
+        if use_cuda:
+            torch.cuda.empty_cache()
         return numpy.array(allPredictions)
 
     def performPCA(self,feature_vectors):

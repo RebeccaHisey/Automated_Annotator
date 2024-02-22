@@ -763,33 +763,33 @@ class Automated_Annotator(QWidget):
     def onSelectImageDirectory(self):
         window = QWidget()
         window.setWindowTitle("Select Image Directory")
-        try:
-            self.imageDirectory = QFileDialog.getExistingDirectoryUrl(window,"C://").toString().replace("file:///","")
+        #try:
+        self.imageDirectory = QFileDialog.getExistingDirectoryUrl(window,"C://").toString().replace("file:///","")
 
-            self.imageDirectoryLabel.setText("Image Directory: \n{}".format(self.imageDirectory))
+        self.imageDirectoryLabel.setText("Image Directory: \n{}".format(self.imageDirectory))
 
-            label_filepath = os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv")
-            if os.path.exists(label_filepath):
-                self.imageLabelFile = pandas.read_csv(label_filepath)
-                imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
-                if not imgs.empty:
-                    self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
-                    self.all_bboxes = None
-                else:
-                    self.getImageFileNames()
+        label_filepath = os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "image_labels.csv")
+        if os.path.exists(label_filepath):
+            self.imageLabelFile = pandas.read_csv(label_filepath)
+            imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
+            if not imgs.empty:
+                self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
+                self.all_bboxes = None
             else:
                 self.getImageFileNames()
-            if len(self.imageFiles) > 0:
-                self.addImagesToLabelFile()
-                reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
-                if not reviewed_imgs.empty:
-                    self.updateModelButton.setEnabled(True)
-            else:
-                self.messageLabel.setText("No images found in directory")
-                self.setImage()
-        except:
+        else:
+            self.getImageFileNames()
+        if len(self.imageFiles) > 0:
+            self.addImagesToLabelFile()
+            reviewed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (self.imageLabelFile["Status"] == "Reviewed")]
+            if not reviewed_imgs.empty:
+                self.updateModelButton.setEnabled(True)
+        else:
             self.messageLabel.setText("No images found in directory")
             self.setImage()
+        '''except:
+            self.messageLabel.setText("No images found in directory")
+            self.setImage()'''
 
 
     def getImageFileNames(self):

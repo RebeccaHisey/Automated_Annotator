@@ -377,18 +377,32 @@ def train(args):
         else:
             yolo.loadModel(foldDir)
             model = yolo.model
-        model.train(data=dataPath,
-                    epochs = args.epochs,
-                    patience = args.patience,
-                    lr0 = args.lr0,
-                    lrf = args.lrf,
-                    batch = args.batch_size,
-                    device=args.device,
-                    workers = args.workers,
-                    verbose=True,
-                    cache=False,
-                    project=foldDir,
-                    exist_ok=True)
+        try:
+            model.train(data=dataPath,
+                        epochs = args.epochs,
+                        patience = args.patience,
+                        lr0 = args.lr0,
+                        lrf = args.lrf,
+                        batch = args.batch_size,
+                        device=args.device,
+                        workers = args.workers,
+                        verbose=True,
+                        cache=False,
+                        project=foldDir,
+                        exist_ok=True)
+        except AssertionError:
+            model.train(data=dataPath,
+                        epochs=args.epochs,
+                        patience=args.patience,
+                        lr0=args.lr0,
+                        lrf=args.lrf,
+                        batch=args.batch_size,
+                        device="cpu",
+                        workers=args.workers,
+                        verbose=True,
+                        cache=False,
+                        project=foldDir,
+                        exist_ok=True)
 
         del model
         del yolo
