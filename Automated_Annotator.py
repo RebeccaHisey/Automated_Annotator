@@ -60,9 +60,14 @@ class Automated_Annotator(QWidget):
         self.selectModelComboBox.addItems(["Select model", "Create new model"] + models)
         self.updateModelButton = QPushButton("Update model")
         self.updateModelButton.setEnabled(False)
+        self.full_update_checkbox = QCheckBox()
+        full_update_label = QLabel("Full")
+        self.full_update_checkbox.checked = False
         hbox.addWidget(self.selectModelLabel)
         hbox.addWidget(self.selectModelComboBox)
         hbox.addWidget(self.updateModelButton)
+        hbox.addWidget(self.full_update_checkbox)
+        hbox.addWidget(full_update_label)
         layout.addLayout(hbox)
         self.selectImageDirButton = QPushButton("Select Image Directory")
         self.selectImageDirButton.setEnabled(False)
@@ -983,6 +988,7 @@ class Automated_Annotator(QWidget):
             self.currentImage = completed_imgs["FileName"][completed_imgs.index[0]]
             self.currentBBoxes = completed_imgs["Bounding boxes"][completed_imgs.index[0]]
         self.updateWidget()
+        self.full_update_checkbox.checked = False
 
     def getPrediction(self,imageFile):
         image = cv2.imread(os.path.join(self.imageDirectory, imageFile))
@@ -1040,7 +1046,7 @@ class Automated_Annotator(QWidget):
 
     def createTrainingCSV(self):
         entries = self.imageLabelFile.loc[self.imageLabelFile["Status"]=="Complete"]
-        if len(entries.index)>5000 and len(entries.index)!=len(self.imageLabelFile.index):
+        if len(entries.index)>5000 and self.full_update_checkbox.checked == False:#and len(entries.index)!=len(self.imageLabelFile.index):
             currentData = entries.loc[entries["Folder"]==self.imageDirectory]
             unique_videos = entries["Folder"].unique()
             for vid in unique_videos:
