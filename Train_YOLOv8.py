@@ -352,7 +352,6 @@ def saveMetrics(metrics,class_mapping,foldDir,mode):
         f.writelines(linesTo_write)
 
 def train(args):
-    #gpu = torch.device(args.device)
     dataCSVFile = pandas.read_csv(args.data_csv_file)
     config = {}
     if args.output_mode =="detect":
@@ -377,45 +376,22 @@ def train(args):
         else:
             yolo.loadModel(foldDir)
             model = yolo.model
-        try:
-            model.train(data=dataPath,
-                        epochs = args.epochs,
-                        patience = args.patience,
-                        lr0 = args.lr0,
-                        lrf = args.lrf,
-                        batch = args.batch_size,
-                        device=args.device,
-                        workers = args.workers,
-                        verbose=True,
-                        cache=False,
-                        project=foldDir,
-                        exist_ok=True)
-        except AssertionError:
-            model.train(data=dataPath,
-                        epochs=args.epochs,
-                        patience=args.patience,
-                        lr0=args.lr0,
-                        lrf=args.lrf,
-                        batch=args.batch_size,
-                        device="cpu",
-                        workers=args.workers,
-                        verbose=True,
-                        cache=False,
-                        project=foldDir,
-                        exist_ok=True)
-        except ValueError:
-            model.train(data=dataPath,
-                        epochs=args.epochs,
-                        patience=args.patience,
-                        lr0=args.lr0,
-                        lrf=args.lrf,
-                        batch=args.batch_size,
-                        device="cpu",
-                        workers=args.workers,
-                        verbose=True,
-                        cache=False,
-                        project=foldDir,
-                        exist_ok=True)
+        if torch.cuda.is_available:
+            device = args.device
+        else:
+            device = "cpu"
+        model.train(data=dataPath,
+                    epochs = args.epochs,
+                    patience = args.patience,
+                    lr0 = args.lr0,
+                    lrf = args.lrf,
+                    batch = args.batch_size,
+                    device=device,
+                    workers = args.workers,
+                    verbose=True,
+                    cache=False,
+                    project=foldDir,
+                    exist_ok=True)
 
         del model
         del yolo
