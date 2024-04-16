@@ -1,7 +1,9 @@
 # Automated_Annotator
+Make sure to install torch first. All the (satisfied) libraries should already be installed if you install the remaining libraries. 
+
 Libraries needed:  
-- ultralytics 
 - torch (https://pytorch.org/get-started/locally/)
+- ultralytics 
 - torchvision (satisfied)
 - transformers  
 - PyQt6

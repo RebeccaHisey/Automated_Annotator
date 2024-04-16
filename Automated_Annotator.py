@@ -403,7 +403,7 @@ class Automated_Annotator(QWidget):
         prev_idx = next_idx - 1
         try:
             prev_status = imgs["Status"][prev_idx]
-            if prev_status == "Complete" or prev_status == "Reviewed":
+            if prev_status != "Complete" and prev_status != "Reviewed":
                 prev_bboxes = eval(str(imgs["Bounding boxes"][prev_idx]))
                 bboxes = eval(str(bboxes))
                 bestBoxes = []
