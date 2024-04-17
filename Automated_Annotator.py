@@ -5,7 +5,7 @@ import numpy
 import cv2
 import pandas
 import math
-
+import torch
 import yaml
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt,QPoint
