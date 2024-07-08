@@ -5,6 +5,7 @@ import numpy
 import yaml
 import argparse
 import gc
+import torch
 from torch.cuda import empty_cache
 from YOLOv8 import YOLOv8
 import torch

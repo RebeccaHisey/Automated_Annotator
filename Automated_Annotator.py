@@ -403,7 +403,8 @@ class Automated_Annotator(QWidget):
         prev_idx = next_idx - 1
         try:
             prev_status = imgs["Status"][prev_idx]
-            if prev_status != "Complete" and prev_status != "Reviewed":
+            currentStatus = imgs["Status"][next_idx]
+            if currentStatus == "Review" and prev_status!="Review":
                 prev_bboxes = eval(str(imgs["Bounding boxes"][prev_idx]))
                 bboxes = eval(str(bboxes))
                 bestBoxes = []
@@ -825,12 +826,35 @@ class Automated_Annotator(QWidget):
             self.labelFile = pandas.read_csv(os.path.join(self.imageDirectory, "{}_Labels.csv".format(subtype)))
             self.imageFiles = [self.labelFile["FileName"][i] for i in self.labelFile.index]
             if "Tool bounding box" in self.labelFile:
-                self.all_bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+                bboxes = [self.labelFile["Tool bounding box"][i] for i in self.labelFile.index]
+                if len(set(bboxes)) == 1:
+                    self.all_bboxes = None
+                else:
+                    self.all_bboxes = bboxes
             else:
                 self.all_bboxes = None
         else:
             self.imageFiles = [x for x in os.listdir(self.imageDirectory) if (".jpg" in x) or (".png" in x)]
             self.all_bboxes = None
+
+        if not self.all_bboxes is None:
+            class_signals = self.classSelector.blockSignals(True)
+            current_Item_count = self.classSelector.count()
+            currentClasses =  [self.classSelector.itemText(i) for i in range(current_Item_count)]
+            new_classes = self.get_bbox_classes()
+            for bbox_class in new_classes:
+                if not bbox_class in currentClasses:
+                    self.classSelector.addItem(bbox_class)
+            self.classSelector.blockSignals(class_signals)
+
+    def get_bbox_classes(self):
+        classes = []
+        for bbox_list in self.all_bboxes:
+            bbox_list = eval(str(bbox_list))
+            for bbox in bbox_list:
+                if not bbox["class"] in classes:
+                    classes.append(bbox["class"])
+        return sorted(classes)
 
 
     def addImagesToLabelFile(self):
