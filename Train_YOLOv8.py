@@ -7,6 +7,7 @@ import argparse
 import gc
 from torch.cuda import empty_cache
 from YOLOv8 import YOLOv8
+import torch
 
 
 def get_arguments():

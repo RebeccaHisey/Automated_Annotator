@@ -757,6 +757,11 @@ class Automated_Annotator(QWidget):
             self.imageLabelFile = pandas.read_csv(os.path.join(self.modelDir,modelName,"image_labels.csv"))
             with open(os.path.join(self.modelDir,modelName,"class_mapping.yaml"),"r") as f:
                 class_mapping = yaml.safe_load(f)
+            if os.path.exists(os.path.join(self.modelDir,modelName,"class_counts.yaml")):
+                with open(os.path.join(self.modelDir,modelName,"class_counts.yaml"),"r") as f:
+                    self.max_counts = yaml.safe_load(f)
+            else:
+                self.max_counts = None
             class_signals = self.classSelector.blockSignals(True)
             for key in class_mapping:
                 self.classSelector.addItem(class_mapping[key])
@@ -991,8 +996,17 @@ class Automated_Annotator(QWidget):
         self.full_update_checkbox.checked = False
 
     def getPrediction(self,imageFile):
+        if self.max_counts is None:
+            if os.path.exists(os.path.join(self.modelDir,modelName,"class_counts.yaml")):
+                with open(os.path.join(self.modelDir,modelName,"class_counts.yaml"),"r") as f:
+                    self.max_counts = yaml.safe_load(f)
+
+
+        print(self.max_counts)
         image = cv2.imread(os.path.join(self.imageDirectory, imageFile))
         preds = eval(self.yolo.predict(image))
+        if not self.max_counts is None:
+            preds = self.filterPredictions(preds)
         for bbox in preds:
             bbox["xmin"] = bbox["xmin"] / image.shape[1]
             bbox["xmax"] = bbox["xmax"] / image.shape[1]
@@ -1001,6 +1015,64 @@ class Automated_Annotator(QWidget):
         entry = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == imageFile]
         self.imageLabelFile["Bounding boxes"][entry.index[0]] = preds
         self.imageLabelFile["Status"][entry.index[0]] = "Review"
+
+    def getClassInstances(self,train_data):
+        counts = {}
+        img_counts = {}
+        for i in train_data.index:
+            bboxes = eval(str(train_data["Bounding boxes"][i]))
+            seen_classes = []
+            for bbox in bboxes:
+                seen_classes.append(bbox["class"])
+                if bbox["class"] in counts:
+                    counts[bbox["class"]] += 1
+                else:
+                    counts[bbox["class"]] = 1
+            for class_name in set(seen_classes):
+                if class_name in img_counts:
+                    img_counts[class_name] +=1
+                else:
+                    img_counts[class_name] = 1
+            '''img_counts = {}
+            bboxes = eval(str(train_data["Bounding boxes"][i]))
+            for bbox in bboxes:
+                if bbox["class"] in img_counts:
+                    img_counts[bbox["class"]] += 1
+                    print(train_data["FileName"][i])
+                else:
+                    img_counts[bbox["class"]] = 1
+            for img_class in img_counts:
+                if img_class in counts:
+                    if counts[img_class] < img_counts[img_class]:
+                        counts[img_class] = img_counts[img_class]
+                else:
+                    counts[img_class] = img_counts[img_class]'''
+        for class_name in counts:
+            counts[class_name] = int(round(counts[class_name]/img_counts[class_name]))
+        self.max_counts = counts
+        with open(os.path.join(self.modelDir, self.selectModelComboBox.currentText(), "class_counts.yaml"), "w") as f:
+            yaml.dump(self.max_counts, f)
+
+    def filterPredictions(self,preds):
+        best_boxes = {}
+        for bbox in preds:
+            if not bbox["class"] in best_boxes:
+                best_boxes[bbox["class"]] = [bbox]
+            else:
+                inserted = False
+                for i in range(len(best_boxes[bbox["class"]])):
+                    if bbox["conf"] > best_boxes[bbox["class"]][i]["conf"]:
+                        best_boxes[bbox["class"]].insert(i, bbox)
+                        inserted = True
+                        break
+                if not inserted and len(best_boxes[bbox["class"]]) < self.max_counts[bbox["class"]]:
+                    best_boxes[bbox["class"]].append(bbox)
+                if len(best_boxes[bbox["class"]]) < self.max_counts[bbox["class"]]:
+                    best_boxes[bbox["class"]] = best_boxes[bbox["class"]][0:self.max_counts[bbox["class"]]]
+        best = []
+        for key in best_boxes:
+            best += best_boxes[key]
+        return best
 
 
     def selectNextImages(self):
@@ -1061,6 +1133,7 @@ class Automated_Annotator(QWidget):
         set_names = ["Train" for i in range(len(entries.index))] + ["Validation" for i in range(len(entries.index))] + ["Test" for i in range(len(entries.index))]
         trainCSV["Set"] = set_names
         trainCSV = self.formatBBoxesForTraining(trainCSV)
+        self.getClassInstances(trainCSV)
         trainCSV.to_csv(os.path.join(self.modelDir,self.selectModelComboBox.currentText(),"Train_data.csv"),index=False)
 
     def formatBBoxesForTraining(self,trainCSV):
