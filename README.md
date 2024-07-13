@@ -1,6 +1,8 @@
 # Automated_Annotator
 Make sure to install torch first. All the (satisfied) libraries should already be installed if you install the remaining libraries. 
 
+The application expects each video to be in its own directory with a single jpg or png for each frame that you wish to annotate.  
+
 Libraries needed:  
 - torch (https://pytorch.org/get-started/locally/)
 - ultralytics 
