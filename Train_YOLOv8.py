@@ -378,7 +378,7 @@ def train(args):
         else:
             yolo.loadModel(foldDir)
             model = yolo.model
-        if torch.cuda.is_available:
+        if torch.cuda.is_available():
             device = args.device
         else:
             device = "cpu"

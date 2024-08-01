@@ -30,7 +30,7 @@ class Cluster():
         try:
             ViTModel.cuda("cuda")
             use_cuda = True
-        except AssertionError:
+        except:
             use_cuda = False
         image_processor = AutoImageProcessor.from_pretrained("facebook/vit-mae-base")
         allPredictions = numpy.array([])
