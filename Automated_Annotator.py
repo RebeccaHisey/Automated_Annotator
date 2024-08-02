@@ -240,11 +240,63 @@ class Automated_Annotator(QWidget):
         displayModeShortcut.setKey("m")
         displayModeShortcut.activated.connect(self.cycleDisplayMode)
 
+        displayModeShortcut = QShortcut(self)
+        displayModeShortcut.setKey("b")
+        displayModeShortcut.activated.connect(self.applyPreviousBox)
+
     def cycleDisplayMode(self):
         currentMode = self.allDisplayModes.index(self.displayMode)
         newMode = (currentMode + 1)%len(self.allDisplayModes)
         self.displayMode = self.allDisplayModes[newMode]
         self.setImage(self.currentImage,reload_image=False)
+
+    def applyPreviousBox(self):
+        bbox_signals = self.currentBoxSelector.blockSignals(True)
+        class_signals = self.classSelector.blockSignals(True)
+        xmin_signals = self.xminSelector.blockSignals(True)
+        xmax_signals = self.xmaxSelector.blockSignals(True)
+        ymin_signals = self.yminSelector.blockSignals(True)
+        ymax_signals = self.ymaxSelector.blockSignals(True)
+        if not self.imageFiles is None and not self.all_bboxes is None:
+            box_index = self.currentBoxSelector.currentIndex()
+            self.currentBBoxes = eval(str(self.currentBBoxes))
+            if self.currentBoxSelector.currentText() != "Add new box" and self.currentBoxSelector.currentText() != "Select box":
+                currentBBox = self.currentBBoxes[box_index-2]
+                idx = self.imageFiles.index(self.currentImage)
+                prev_box = self.findPreviousBox(currentBBox,idx)
+                print(prev_box)
+                if not prev_box is None:
+                    self.currentBBoxes[box_index-2] = prev_box
+                    self.onCurrentBoxChanged()
+                    self.updateLabelFile()
+                    self.all_bboxes[idx] = self.currentBBoxes
+        self.currentBoxSelector.blockSignals(bbox_signals)
+        self.classSelector.blockSignals(class_signals)
+        self.xminSelector.blockSignals(xmin_signals)
+        self.xmaxSelector.blockSignals(xmax_signals)
+        self.yminSelector.blockSignals(ymin_signals)
+        self.ymaxSelector.blockSignals(ymax_signals)
+        self.setImage(self.currentImage)
+
+    def findPreviousBox(self,currentBox,idx):
+        currentClass = currentBox["class"]
+        images_to_review = self.imageLabelFile.loc[(self.imageLabelFile["Folder"] == self.imageDirectory) & (
+                    (self.imageLabelFile["Status"] == "Review") | (self.imageLabelFile["Status"] == "Reviewed"))]
+        current_image = self.imageLabelFile.loc[self.imageLabelFile["FileName"] == self.currentImage]
+        prev_box_found = False
+        prev_box = None
+        if not images_to_review.empty:
+            img_idxs = images_to_review.index
+            curr_idx = self.getCurrentIndex(current_image.index[0], img_idxs)
+            while curr_idx > 0 and not prev_box_found:
+                curr_idx -= 1
+                prev_bboxes = eval(str(self.imageLabelFile["Bounding boxes"][img_idxs[curr_idx]]))
+                for bbox in prev_bboxes:
+                    if bbox["class"] == currentClass and not (bbox["xmin"]==currentBox["xmin"] and bbox["xmax"]==currentBox["xmax"] and bbox["ymin"]==currentBox["ymin"] and bbox["ymax"]==currentBox["ymax"]):
+                        prev_box = bbox
+                        prev_box_found = True
+        return prev_box
+
 
     def removeImage(self):
         completed_imgs = self.imageLabelFile.loc[(self.imageLabelFile["Folder"]==self.imageDirectory) & (self.imageLabelFile["Status"]=="Complete")]
@@ -785,7 +837,7 @@ class Automated_Annotator(QWidget):
             imgs = self.imageLabelFile.loc[self.imageLabelFile["Folder"] == self.imageDirectory]
             if not imgs.empty:
                 self.imageFiles = [self.imageLabelFile["FileName"][i] for i in imgs.index]
-                self.all_bboxes = None
+                self.all_bboxes = [self.imageLabelFile["Bounding boxes"][i] for i in imgs.index]
             else:
                 self.getImageFileNames()
         else:
