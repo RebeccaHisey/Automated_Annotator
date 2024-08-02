@@ -257,7 +257,7 @@ class Automated_Annotator(QWidget):
         xmax_signals = self.xmaxSelector.blockSignals(True)
         ymin_signals = self.yminSelector.blockSignals(True)
         ymax_signals = self.ymaxSelector.blockSignals(True)
-        if not self.imageFiles is None and not self.all_bboxes is None:
+        if not self.imageFiles is None:
             box_index = self.currentBoxSelector.currentIndex()
             self.currentBBoxes = eval(str(self.currentBBoxes))
             if self.currentBoxSelector.currentText() != "Add new box" and self.currentBoxSelector.currentText() != "Select box":
@@ -269,7 +269,8 @@ class Automated_Annotator(QWidget):
                     self.currentBBoxes[box_index-2] = prev_box
                     self.onCurrentBoxChanged()
                     self.updateLabelFile()
-                    self.all_bboxes[idx] = self.currentBBoxes
+                    if not self.all_bboxes is None:
+                        self.all_bboxes[idx] = self.currentBBoxes
         self.currentBoxSelector.blockSignals(bbox_signals)
         self.classSelector.blockSignals(class_signals)
         self.xminSelector.blockSignals(xmin_signals)
