@@ -24,4 +24,5 @@ Commands:
 - p -> move to previous image
 - d -> remove image (only functional after all images have been labelled)
 - m -> cycle display modes (show all boxes, show active box only, hide all boxes)
+- b -> replace current box with the box of the same class from the previously reviewed image
 - Ctrl+e -> export bounding boxes to label file (only functional after all images have been labelled)
