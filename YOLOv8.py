@@ -45,6 +45,29 @@ class YOLOv8:
             #overall_mask = numpy.zeros((image.shape[1],img.shape[0], 1),numpy.uint8)
             return masks
 
+    def track(self,image,tracker,persist):
+        '''image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.flip(image,0)'''
+        results = self.model.track(image,tracker=tracker,persist=persist)
+        bboxes = results[0].boxes.xyxy.cpu().numpy()
+        class_nums = results[0].boxes.cls.cpu().numpy()
+        confs = results[0].boxes.conf.cpu().numpy()
+        resultList = []
+        print(bboxes.shape)
+        for i in range(bboxes.shape[0]):
+            class_value = class_nums[i]
+            class_name = self.class_mapping[class_value]
+            xmin,ymin,xmax,ymax = bboxes[i]
+            confidence = confs[i] #[class_value]
+            bbox = {"class":class_name,
+                    "xmin":round(xmin),
+                    "ymin":round(ymin),
+                    "xmax":round(xmax),
+                    "ymax":round(ymax),
+                    "conf":confidence}
+            resultList.append(bbox)
+        return str(resultList)
+
     def createModel(self):
         if self.mode == 'detect':
             self.model = YOLO("yolov8s.pt")

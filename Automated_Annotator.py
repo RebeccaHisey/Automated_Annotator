@@ -1020,6 +1020,7 @@ class Automated_Annotator(QWidget):
         self.full_update_checkbox.checked = False
 
     def getPrediction(self,imageFile):
+        modelName = self.selectModelComboBox.currentText()
         if self.max_counts is None:
             if os.path.exists(os.path.join(self.modelDir,modelName,"class_counts.yaml")):
                 with open(os.path.join(self.modelDir,modelName,"class_counts.yaml"),"r") as f:
