@@ -5,7 +5,7 @@
 ### Abstract
 Annotation for surgical instrument detection research is extremely time-consuming and tedious, leading to a scarcity of annotated datasets, and those that do exist tend to be small. Currently, researchers studying surgical instrument detection in open or percutaneous applications must build new datasets from scratch, a process that can take many months or even years using current annotation practices. To address this challenge, we propose a novel pipeline based on active learning that reduces the human effort required to produce annotated datasets while maintaining high-quality labels. This approach involves annotating a small subset of images and iteratively updating an object detection network. This trained network is then used to suggest bounding box annotations for human annotators to review and correct.
 
-The full paper can be found [here](https://labs.cs.queensu.ca/perklab/404).
+This work is currently in submission. The full paper can be found [here](https://labs.cs.queensu.ca/perklab/404).
 
 
 ### Description
@@ -13,7 +13,7 @@ In essence, the Automated_annotator is a tool that can be used to expedite the p
 
 This pipeline resembles a typical active learning pipeline with a few key differences. The primary difference is that the goal of the pipeline is not to simply train an object detection model, instead the goal is to use the trained model to assist a human reviewer to annotate all samples. This goal requires two modifications to the active learning pipeline. The first change is that all images will be annotated as opposed to selecting only a small sample to annotate. The second change involves using the trained model to produce suggested bounding box annotations, which a human annotator can then review and correct.
 
-![Pipeline](images\pipeline.png)
+![Pipeline](images/pipeline.png)
 
 When using this pipeline, all data is processed securely on your local system, with no information transmitted externally. All operations are entirely in-house, ensuring that your data remains private and protected within your own infrastructure.
 
@@ -73,13 +73,13 @@ python <path to repo>/Automated_Annotator.py
 ### 1. Creating a model
 The first time using the automated_annotator. You will need to create a model. Click the dropdown next to "Select Model", select "Create new model", and name your model. Note that you are only required to do this on your first use. On subsequent uses simply select the model you have already created a named.
 
-![Creating model example](images\Create_model.png)
+![Creating model example](images/Create_model.png)
 
 
 ### 2. Select an image directory
 Once your model is selected, you can find your images. Use the "select Image Directory" button to open your file explorer and locate the location of your desired directory.
 
-![Selecting image directory example](images\select_directory.png)
+![Selecting image directory example](images/select_directory.png)
 
 Note: The application expects each video to be in its own directory with a single jpg or png for each frame that you wish to annotate.
 
@@ -95,7 +95,7 @@ To add a new box:
   - If no classes have been added, select "Add new class", a pop-up window will appear prompting you for your new class name.
 - Click and drag on the image to place your box.
 
-![gif of box being placed](images\placing_bounding_box.gif)
+![gif of box being placed](images/placing_bounding_box.gif)
 
 To modify an existing box:
 - Select the box you wish to modify using the current box selector.
