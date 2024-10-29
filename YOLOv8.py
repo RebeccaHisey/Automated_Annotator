@@ -37,7 +37,7 @@ class YOLOv8:
                         "ymin":round(ymin),
                         "xmax":round(xmax),
                         "ymax":round(ymax),
-                        "conf":confidence}
+                        "conf":float(confidence)}
                 resultList.append(bbox)
             return str(resultList)
         elif mode == 'segment':

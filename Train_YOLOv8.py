@@ -146,30 +146,31 @@ def writeLabelTextFiles(data, labelName, foldDir,inverted_class_mapping,include_
         filePath = os.path.join(data["Folder"][i],data["FileName"][i])
         bboxes = eval(data[labelName][i])
         classNames = [bbox["class"] for bbox in bboxes]
-        if len(classNames)>0:
-            maxDuplicates = max([numDuplicates[class_name] for class_name in classNames])
-            for class_name in classNames:
-                foundCounts[class_name]+=maxDuplicates
-        else:
-            maxDuplicates = 1
-        if len(bboxes) == 0 and ((data["Set"][i]=="Train" and include_blank) or data["Set"][i] != "Train"):
-            for j in range(maxDuplicates):
-                linesToWrite.append("{}\n".format(filePath))
-        elif len(bboxes) > 0:
-            for j in range(maxDuplicates):
-                linesToWrite.append("{}\n".format(filePath))
-            file,imgExtension = filePath.split(".",-1)
-            labelFilePath = file+".txt"
-            if data["Set"][data.index[0]] == "Train":
-                img = cv2.imread(filePath)
-                img_shape = img.shape
-                line = ""
-                for bbox in bboxes:
-                    x_centre, y_centre, width, height = xyxy_to_yolo(img_shape,bbox)
-                    class_name = inverted_class_mapping[bbox["class"]]
-                    line += "{} {} {} {} {}\n".format(class_name,x_centre,y_centre,width,height)
-                with open(labelFilePath, "w") as f:
-                    f.write(line)
+        if os.path.exists(filePath):
+            if len(classNames)>0:
+                maxDuplicates = max([numDuplicates[class_name] for class_name in classNames])
+                for class_name in classNames:
+                    foundCounts[class_name]+=maxDuplicates
+            else:
+                maxDuplicates = 1
+            if len(bboxes) == 0 and ((data["Set"][i]=="Train" and include_blank) or data["Set"][i] != "Train"):
+                for j in range(maxDuplicates):
+                    linesToWrite.append("{}\n".format(filePath))
+            elif len(bboxes) > 0:
+                for j in range(maxDuplicates):
+                    linesToWrite.append("{}\n".format(filePath))
+                file,imgExtension = filePath.split(".",-1)
+                labelFilePath = file+".txt"
+                if data["Set"][data.index[0]] == "Train":
+                    img = cv2.imread(filePath)
+                    img_shape = img.shape
+                    line = ""
+                    for bbox in bboxes:
+                        x_centre, y_centre, width, height = xyxy_to_yolo(img_shape,bbox)
+                        class_name = inverted_class_mapping[bbox["class"]]
+                        line += "{} {} {} {} {}\n".format(class_name,x_centre,y_centre,width,height)
+                    with open(labelFilePath, "w") as f:
+                        f.write(line)
     print(foundCounts)
     fileName = "{}.txt".format(data["Set"][data.index[0]])
     filePath = os.path.join(foldDir,fileName)

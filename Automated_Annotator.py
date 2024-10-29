@@ -1,5 +1,7 @@
+import ast
 import os
 import shutil
+import ast
 import sys
 import numpy
 import cv2
@@ -1082,7 +1084,7 @@ class Automated_Annotator(QWidget):
 
         print(self.max_counts)
         image = cv2.imread(os.path.join(self.imageDirectory, imageFile))
-        preds = eval(self.yolo.predict(image))
+        preds = ast.literal_eval(self.yolo.predict(image))
         if not self.max_counts is None:
             preds = self.filterPredictions(preds)
         for bbox in preds:
@@ -1199,11 +1201,15 @@ class Automated_Annotator(QWidget):
         if len(entries.index)>5000 and self.full_update_checkbox.checked == False:#and len(entries.index)!=len(self.imageLabelFile.index):
             currentData = entries.loc[entries["Folder"]==self.imageDirectory]
             unique_videos = entries["Folder"].unique()
-            for vid in unique_videos:
+            '''for vid in unique_videos:
                 if vid != self.imageDirectory:
                     data = entries.loc[entries["Folder"]==vid]
                     data = data.sample(frac=0.1)
-                    currentData = pandas.concat([currentData,data])
+                    currentData = pandas.concat([currentData,data])'''
+            if len(unique_videos)>0:
+                data = entries.loc[entries["Folder"] != self.imageDirectory]
+                data = data.sample(n=min(len(currentData.index),len(data.index)))
+                currentData = pandas.concat([currentData, data])
             entries = currentData.copy()
         trainCSV = pandas.concat([entries.copy(),entries.copy(),entries.copy()])
         trainCSV.index = [i for i in range(3*len(entries.index))]
